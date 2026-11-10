@@ -1,2 +1,4 @@
+# Keep PyAV below 19: faster-whisper 1.2.1 still passes metadata_errors to av.open(), removed in PyAV 19.
+av>=11,<19
 google-genai
 faster-whisper
