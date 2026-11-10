@@ -329,17 +329,18 @@ def safe_slug(value: str) -> str:
     return slug[:42] or "podcast-clip"
 
 
-def prepare_source(source: Path, target: Path) -> None:
-    if source.suffix.lower() == ".mp4":
-        shutil.copy2(source, target)
-    else:
-        run([
-            "ffmpeg", "-y", "-i", str(source),
-            "-map", "0:v:0", "-map", "0:a?",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
-            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
-            "-movflags", "+faststart", str(target)
-        ], REPO)
+def prepare_clip(source: Path, target: Path, start_sec: float, duration: float) -> None:
+    # Normalize the selected excerpt to CFR 30fps so Remotion frame offsets
+    # are exact even when the original podcast is 25, 29.97, 50, or 60fps.
+    run([
+        "ffmpeg", "-y", "-ss", f"{start_sec:.3f}", "-i", str(source),
+        "-t", f"{duration:.3f}",
+        "-map", "0:v:0", "-map", "0:a:0?",
+        "-vf", "fps=30",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
+        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart", str(target)
+    ], REPO)
 
 
 def command_render(args: argparse.Namespace) -> None:
@@ -370,7 +371,7 @@ def command_render(args: argparse.Namespace) -> None:
     out_dir = REPO / "out"
     public_dir.mkdir(exist_ok=True)
     out_dir.mkdir(exist_ok=True)
-    prepare_source(source, public_dir / "source.mp4")
+    prepare_clip(source, public_dir / "source.mp4", start_sec, duration)
 
     template_path = REPO / "hyperframes" / "index.template.html"
     template = template_path.read_text(encoding="utf-8")
@@ -399,7 +400,7 @@ def command_render(args: argparse.Namespace) -> None:
     props = {
         "sourceFile": "source.mp4",
         "overlayFile": "overlay.webm",
-        "sourceStartSec": start_sec,
+        "sourceStartSec": 0.0,
         "durationInSeconds": duration,
         "headline": clip.get("hook") or clip.get("title") or "KEY MOMENT",
         "captions": captions,
