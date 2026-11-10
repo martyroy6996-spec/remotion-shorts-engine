@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { gsap } from "gsap";
+const gsap = window.gsap;
 
 const stage = document.getElementById("stage");
 const canvas = document.getElementById("scene");
