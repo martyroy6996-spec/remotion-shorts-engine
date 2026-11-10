@@ -383,6 +383,7 @@ def command_render(args: argparse.Namespace) -> None:
     )
     (REPO / "hyperframes" / "index.html").write_text(overlay_html, encoding="utf-8")
 
+    shutil.copy2(REPO / "node_modules" / "gsap" / "dist" / "gsap.min.js", REPO / "hyperframes" / "gsap.min.js")
     run(["npm", "run", "build:overlay"], REPO)
     run(["npx", "hyperframes", "lint"], REPO / "hyperframes")
 
