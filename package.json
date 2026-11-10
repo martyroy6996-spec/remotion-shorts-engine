@@ -1,0 +1,28 @@
+{
+  "name": "remotion-shorts-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gemini-assisted podcast clipping with HyperFrames 3D overlays and Remotion rendering.",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "build:overlay": "esbuild hyperframes/src/scene.js --bundle --format=esm --target=es2020 --outfile=hyperframes/scene.bundle.js",
+    "render": "remotion render src/index.ts ViralReel out/final.mp4 --props=public/props.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.542",
+    "remotion": "4.0.542",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "hyperframes": "0.9.28",
+    "three": "0.180.0",
+    "gsap": "3.13.0",
+    "esbuild": "0.25.11"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "@types/react": "18.3.18",
+    "@types/three": "0.180.0",
+    "typescript": "5.8.3"
+  },
+  "engines": { "node": ">=22" }
+}
