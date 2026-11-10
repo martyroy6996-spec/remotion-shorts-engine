@@ -17,4 +17,5 @@ public/*.webm
 public/*.json
 hyperframes/index.html
 hyperframes/scene.bundle.js
+hyperframes/gsap.min.js
 hyperframes/renders/
