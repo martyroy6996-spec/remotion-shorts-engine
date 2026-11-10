@@ -20,11 +20,12 @@ This does not promise that a clip will go viral. It is a repeatable selection an
 
 - Gemini 3.8 Flash ranks moments and writes a concise hook/title. It is not trusted to invent timestamps.
 - faster-whisper supplies the timing backbone for cuts and captions.
-- HyperFrames + Three.js renders a reusable transparent 3D orbital graphic layer.
-- Remotion composes the final reel and renders MP4.
+- Remotion owns the final 9:16 composition, timeline, captions, video layers, audio, and MP4 export.
+- HyperFrames owns a separate HTML/CSS/JavaScript motion-graphics scene, using GSAP and Three.js for animated 2D/3D visual layers.
+- Three.js is the 3D engine for every custom 3D shot. There is no Blender dependency or Blender rendering stage.
 - Google Colab + Drive provide the execution environment and persistent input/output storage.
 
-HyperFrames is an HTML/CSS/JavaScript video renderer, not a native Remotion plugin. This project connects them by rendering a transparent WebM overlay in HyperFrames and compositing that overlay in Remotion.
+HyperFrames is not a native Remotion plugin. The current integration renders a transparent WebM overlay in HyperFrames and composites it in Remotion. Future editing plans may use Remotion-native compositions for some graphics and HyperFrames scenes for others, but Remotion remains the final timeline compositor and export engine.
 
 ## Start in Google Colab
 
@@ -67,7 +68,7 @@ The render step runs hyperframes lint, renders the WebM overlay, then calls the 
 
 - Keep the repository free of real API keys. Colab Secrets is the preferred key store.
 - Source footage is copied into the ephemeral Colab runtime during rendering and is not committed.
-- The first version uses one fixed 3D overlay system and a configurable center crop. More advanced layouts, speaker-aware reframing, B-roll search, multi-speaker cuts, SFX, and style presets are next-stage work.
+- The first version uses one fixed Three.js 3D overlay system and a configurable center crop. More advanced layouts, speaker-aware reframing, B-roll search, multi-speaker cuts, SFX, story-specific Three.js scenes, and style presets are next-stage work.
 - Whisper GPU inference may fall back to CPU if the Colab CUDA/CTranslate2 stack is incompatible. CPU fallback works but is slower.
 - HyperFrames and Remotion render inside the Colab runtime. A notebook run is required before any MP4 can appear in Drive.
 
