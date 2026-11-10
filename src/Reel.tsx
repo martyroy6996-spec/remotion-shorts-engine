@@ -38,10 +38,14 @@ const CaptionLine: React.FC<{ caption: CaptionItem }> = ({ caption }) => {
     fps,
     config: { damping: 16, mass: 0.55, stiffness: 150 }
   });
-  const fadeOut = interpolate(frame, [0, 5, 30, 38], [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp"
-  });
+  const captionDurationFrames = Math.max(1, Math.ceil((caption.end - caption.start) * fps));
+  const fadeStartFrame = Math.max(5, captionDurationFrames - 5);
+  const fadeOut = interpolate(
+    frame,
+    [0, 5, fadeStartFrame, captionDurationFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
 
   return (
     <AbsoluteFill
