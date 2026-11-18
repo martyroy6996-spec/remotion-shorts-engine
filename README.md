@@ -1,85 +1,57 @@
 # Remotion Shorts Engine
 
-A Colab-first podcast and long-form video clipping workflow. Upload a source video to Google Drive, let Whisper create word-timestamped transcription, use Gemini to rank self-contained moments, approve the clips, and render vertical MP4s with HyperFrames 3D overlays plus Remotion.
+A Colab-first clipping and editing toolkit. The repository now has two workflows:
 
-This repository contains code only. Do not commit API keys, source footage, transcripts, render files, or private media.
+- **Podcast / interview workflow:** the original Gemini + faster-whisper + HyperFrames + Remotion path in `colab/Reel_Factory.ipynb`.
+- **GTA 6 gameplay review workflow:** a separate Colab notebook that reuses the existing GTA6_CLIPPING Drive project and completed transcript/candidate files.
 
-## What this version does
+This repository contains code only. Never commit API keys, source footage, transcripts, render files, or private media.
 
-1. Reads video files from Google Drive / MyDrive / ReelFactory / input.
-2. Transcribes speech with faster-whisper and word timestamps.
-3. Asks Gemini to identify up to seven promising 15-65 second moments using transcript-supported timecodes.
-4. Shows ranked candidates for human selection.
-5. Uses HyperFrames and Three.js to render a transparent 3D motion-graphics overlay.
-6. Uses Remotion to crop the speaker footage to 1080x1920, add animated captions and an opening hook, combine the overlay, and export H.264 MP4.
-7. Copies the MP4 and review metadata into Google Drive / MyDrive / ReelFactory / output.
+## GTA 6 Colab workflow (new)
 
-This does not promise that a clip will go viral. It is a repeatable selection and editing pipeline; performance still depends on the source, story, packaging, audience, and distribution.
+Open the GTA 6 notebook from the `feature/gta6-colab-pipeline` branch:
 
-## Architecture
+https://colab.research.google.com/github/martyroy6996-spec/remotion-shorts-engine/blob/feature/gta6-colab-pipeline/colab/GTA6_Clip_Factory.ipynb
 
-- Gemini 3.8 Flash ranks moments and writes a concise hook/title. It is not trusted to invent timestamps.
-- faster-whisper supplies the timing backbone for cuts and captions.
-- Remotion owns the final 9:16 composition, timeline, captions, video layers, audio, and MP4 export.
-- HyperFrames owns a separate HTML/CSS/JavaScript motion-graphics scene, using GSAP and Three.js for animated 2D/3D visual layers.
-- Three.js is the 3D engine for every custom 3D shot. There is no Blender dependency or Blender rendering stage.
-- Google Colab + Drive provide the execution environment and persistent input/output storage.
+The notebook expects this existing Drive structure:
 
-HyperFrames is not a native Remotion plugin. The current integration renders a transparent WebM overlay in HyperFrames and composites it in Remotion. Future editing plans may use Remotion-native compositions for some graphics and HyperFrames scenes for others, but Remotion remains the final timeline compositor and export engine.
+```
+MyDrive/GTA6_CLIPPING/
+  02_SOURCE_MEDIA/authorized_originals/GTA-6-Gameplay-SnapYT.App.mp4
+  04_TRANSCRIPTS/
+  05_CLIP_CANDIDATES/ranked_clip_candidates.csv
+```
 
-## Start in Google Colab
+It mounts Drive, checks the source and candidate timecodes, extracts four visual review frames per candidate, and renders source-aspect review previews. It reuses the transcript and candidate CSV already created in Colab; it does not re-transcribe the source.
 
-Open the notebook:
+The helper implementation is `pipeline/gta6_review.py`. Its commands are:
+
+```bash
+python pipeline/gta6_review.py verify --video SOURCE.mp4 --candidates ranked_clip_candidates.csv
+python pipeline/gta6_review.py inspect --video SOURCE.mp4 --candidates ranked_clip_candidates.csv --limit 20 --output visual_review
+python pipeline/gta6_review.py previews --video SOURCE.mp4 --candidates ranked_clip_candidates.csv --limit 5 --seconds 45 --output previews
+```
+
+**Scope honesty:** this GTA 6 branch currently implements source validation, candidate timecode validation, contact-sheet extraction, and source-aspect review previews. It does not yet implement gameplay-aware automatic event detection, verified vertical reframing, final caption correction, or the GTA 6 Remotion/HyperFrames render pipeline. Those stages must be built and tested before calling this a complete automated clip factory.
+
+## Original podcast / interview workflow
+
+Open the original notebook on `main`:
 
 https://colab.research.google.com/github/martyroy6996-spec/remotion-shorts-engine/blob/main/colab/Reel_Factory.ipynb
 
-Recommended runtime: T4 GPU. The notebook installs Node.js 22, FFmpeg, Python requirements, Remotion, and HyperFrames, then checks the installed versions.
+That workflow uses faster-whisper for word timing, Gemini to rank transcript-supported moments, HyperFrames + Three.js for a transparent motion-graphics overlay, and Remotion for final composition. It was designed around podcast/interview content and should not be assumed to be suitable for gameplay without adaptation.
 
-### First-time setup
+## Engineering principles
 
-1. Open the notebook in Colab and connect a runtime.
-2. In Colab, open Secrets (key icon) and add GEMINI_API_KEY. Grant notebook access to the secret. The notebook also supports a one-session hidden prompt if you do not use Colab Secrets.
-3. Mount Google Drive when prompted.
-4. Upload one or more source videos to MyDrive/ReelFactory/input.
-5. Run the analysis cell. Review the clip candidates and their scores.
-6. Enter the candidate number(s) you want to render. The top-ranked candidate is index 0.
-7. Find the finished MP4 in MyDrive/ReelFactory/output.
+- Colab is an execution environment, not permanent storage. Checkpoints and outputs belong in Drive.
+- GPU availability is optional; never assume a Colab Free session has a T4.
+- Existing user-generated transcripts and candidates should be reused when valid.
+- Transcript scores are heuristics, not virality predictions. Human review of complete footage is required.
+- Never force a centre crop on gameplay without checking where the action and HUD are located.
+- Rendering and publishing remain separate. No automatic publishing without explicit approval.
+- Do not publish third-party gameplay footage unless the user owns it, has permission, or has a valid legal basis to use it.
 
-The notebook clones the current code from this public repository into the Colab runtime. Your Drive videos are not uploaded to GitHub.
+## Existing render stack
 
-## Drive folders
-
-- MyDrive/ReelFactory/input/ — source podcast/interview/clipping videos.
-- MyDrive/ReelFactory/output/ — rendered MP4s, transcript, candidate list, and render manifest.
-
-## Run locally
-
-Requirements: Node.js 22+, FFmpeg, Python 3.10+, and a Gemini API key.
-
-    npm install
-    python -m pip install -r requirements.txt
-    export GEMINI_API_KEY="YOUR_KEY"
-    python pipeline/clipper.py analyze --input "/path/to/podcast.mp4" --workdir "/path/to/reel-work"
-    python pipeline/clipper.py render --input "/path/to/podcast.mp4" --workdir "/path/to/reel-work" --candidate-index 0 --drive-output "/path/to/output"
-
-The render step runs hyperframes lint, renders the WebM overlay, then calls the Remotion CLI.
-
-## Important constraints
-
-- Keep the repository free of real API keys. Colab Secrets is the preferred key store.
-- Source footage is copied into the ephemeral Colab runtime during rendering and is not committed.
-- The first version uses one fixed Three.js 3D overlay system and a configurable center crop. More advanced layouts, speaker-aware reframing, B-roll search, multi-speaker cuts, SFX, story-specific Three.js scenes, and style presets are next-stage work.
-- Whisper GPU inference may fall back to CPU if the Colab CUDA/CTranslate2 stack is incompatible. CPU fallback works but is slower.
-- HyperFrames and Remotion render inside the Colab runtime. A notebook run is required before any MP4 can appear in Drive.
-
-## Licensing
-
-Remotion's current terms allow free use for individuals and organizations with up to three employees, including commercial video creation, subject to its terms. Larger organizations may need a company license. Check the official Remotion license page before production use: https://www.remotion.dev/docs/license/pricing
-
-## Upstream references
-
-- Remotion documentation: https://www.remotion.dev/docs/
-- Remotion rendering: https://www.remotion.dev/docs/render
-- HyperFrames CLI: https://hyperframes.app/docs/
-- Gemini video understanding: https://ai.google.dev/gemini-api/docs/video-understanding
-- Google GenAI SDK: https://ai.google.dev/gemini-api/docs/migrate
+The original workflow uses Node.js, Remotion, HyperFrames, Three.js, and FFmpeg. HyperFrames renders a transparent WebM overlay; Remotion composites the overlay and source footage. Remotion licensing and current usage terms must be checked before commercial production: https://www.remotion.dev/docs/license/pricing
