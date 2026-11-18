@@ -9,9 +9,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
-import math
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -38,6 +35,8 @@ def load_candidates(path: Path, limit: int) -> list[dict[str, Any]]:
         raise FileNotFoundError(f"Candidate CSV not found: {path}")
     with path.open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
+    if not rows:
+        raise ValueError(f"No candidate rows found in {path}")
     for row in rows:
         row["start"] = float(row["start"])
         row["end"] = float(row["end"])
@@ -65,47 +64,55 @@ def inspect(args: argparse.Namespace) -> None:
     from PIL import Image, ImageDraw, ImageFont
 
     video = Path(args.video)
-    candidate_csv = Path(args.candidates)
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    rows = load_candidates(candidate_csv, args.limit)
+    rows = load_candidates(Path(args.candidates), args.limit)
     duration = probe_duration(video)
 
-    width, height, label_h = 320, 180, 32
-    group_size = 5
-    font = ImageFont.load_default()
-    sheet = None
-    draw = None
-
-    for index, row in enumerate(rows, 1):
-        start = row["start"]
-        if start + max(OFFSETS) >= duration:
-            print(f"Skipping candidate {index}: frame offset exceeds source.")
+    valid_rows = []
+    for rank, row in enumerate(rows, 1):
+        if row["start"] < 0 or row["end"] <= row["start"] or row["end"] > duration + 1:
+            raise ValueError(f"Invalid candidate #{rank}: {row}")
+        if row["start"] + max(OFFSETS) >= duration:
+            print(f"Skipping candidate {rank}: frame offset exceeds source.")
             continue
+        valid_rows.append((rank, row))
 
-        group_pos = (index - 1) % group_size
-        if group_pos == 0:
-            sheet = Image.new("RGB", (width * 4, (height + label_h) * group_size), "black")
-            draw = ImageDraw.Draw(sheet)
+    width, height, label_h = 320, 180, 32
+    font = ImageFont.load_default()
+    group_size = 5
 
-        y = group_pos * (height + label_h)
-        draw.text((8, y + 5), f"Candidate {index} | {start/60:05.2f} min | score {row['score']}", fill="white", font=font)
+    for group_number, group_start in enumerate(range(0, len(valid_rows), group_size), 1):
+        group = valid_rows[group_start:group_start + group_size]
+        sheet = Image.new("RGB", (width * 4, (height + label_h) * group_size), "black")
+        draw = ImageDraw.Draw(sheet)
 
-        for col, offset in enumerate(OFFSETS):
-            frame_path = out / f"candidate_{index:02d}_{offset:02d}s.jpg"
-            run([
-                "ffmpeg", "-y", "-v", "error", "-ss", f"{start + offset:.3f}",
-                "-i", str(video), "-frames:v", "1", "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2",
-                "-q:v", "3", str(frame_path)
-            ])
-            with Image.open(frame_path) as frame:
-                sheet.paste(frame.convert("RGB"), (col * width, y + label_h))
-            draw.text((col * width + 8, y + label_h + 7), f"+{offset}s", fill="yellow", font=font)
+        for row_pos, (rank, row) in enumerate(group):
+            y = row_pos * (height + label_h)
+            draw.text(
+                (8, y + 5),
+                f"Candidate {rank} | {row['start']/60:05.2f} min | score {row['score']}",
+                fill="white", font=font
+            )
 
-        if group_pos == group_size - 1 or index == len(rows):
-            sheet_path = out / f"visual_contact_sheet_{(index - 1)//group_size + 1}.jpg"
-            sheet.save(sheet_path, quality=90)
-            print("Saved:", sheet_path)
+            for col, offset in enumerate(OFFSETS):
+                frame_path = out / f"candidate_{rank:02d}_{offset:02d}s.jpg"
+                run([
+                    "ffmpeg", "-y", "-v", "error", "-ss", f"{row['start'] + offset:.3f}",
+                    "-i", str(video), "-frames:v", "1",
+                    "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2",
+                    "-q:v", "3", str(frame_path)
+                ])
+                with Image.open(frame_path) as frame:
+                    sheet.paste(frame.convert("RGB"), (col * width, y + label_h))
+                draw.text(
+                    (col * width + 8, y + label_h + 7),
+                    f"+{offset}s", fill="yellow", font=font
+                )
+
+        sheet_path = out / f"visual_contact_sheet_{group_number}.jpg"
+        sheet.save(sheet_path, quality=90)
+        print("Saved:", sheet_path)
 
     print(f"Visual review assets saved to: {out}")
 
